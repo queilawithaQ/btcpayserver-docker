@@ -17,9 +17,6 @@ install_tooling() {
                 "btcpayserver_monacoind" "monacoin-cli.sh" "Command line for your Monacoin instance" \
                 "btcpayserver_trezarcoind" "trezarcoin-cli.sh" "Command line for your Trezar instance" \
                 "btcpayserver_viacoind" "viacoin-cli.sh" "Command line for your Viacoin instance" \
-                "btcpayserver_elementsd" "elements-cli.sh" "Command line for your Elements/Liquid instance" \
-                "ndlci_cli" "ndlc-cli.sh" "Command line for NDLC-CLI" \
-                "pihole" "pihole.sh" "Command line for running pihole commands" \
                 "*" "btcpay-clean.sh" "Command line for deleting old unused docker images" \
                 "*" "btcpay-down.sh" "Command line for stopping all services related to BTCPay Server" \
                 "*" "btcpay-restart.sh" "Command line for restarting all services related to BTCPay Server" \
@@ -71,15 +68,6 @@ btcpay_expand_variables() {
 btcpay_update_docker_env() {
 btcpay_expand_variables
 touch $BTCPAY_ENV_FILE
-
-# In a previous release, BTCPAY_HOST_SSHAUTHORIZEDKEYS was not saved into the .env, so the next update after setup
-# with BTCPAY_ENABLE_SSH set, BTCPAY_HOST_SSHAUTHORIZEDKEYS would get empty and break the SSH feature in btcpayserver
-# This condition detect this situation, and fix up BTCPAY_HOST_SSHAUTHORIZEDKEYS
-if [[ "$BTCPAY_ENABLE_SSH" == "true" ]] && ! [[ "$BTCPAY_HOST_SSHAUTHORIZEDKEYS" ]]; then
-    BTCPAY_HOST_SSHAUTHORIZEDKEYS=~/.ssh/authorized_keys
-    BTCPAY_HOST_SSHKEYFILE=""
-fi
-
 echo "
 BTCPAY_PROTOCOL=$BTCPAY_PROTOCOL
 BTCPAY_HOST=$BTCPAY_HOST
@@ -96,17 +84,12 @@ LIGHTNING_ALIAS=$LIGHTNING_ALIAS
 BTCPAY_SSHTRUSTEDFINGERPRINTS=$BTCPAY_SSHTRUSTEDFINGERPRINTS
 BTCPAY_SSHKEYFILE=$BTCPAY_SSHKEYFILE
 BTCPAY_SSHAUTHORIZEDKEYS=$BTCPAY_SSHAUTHORIZEDKEYS
-BTCPAY_HOST_SSHAUTHORIZEDKEYS=$BTCPAY_HOST_SSHAUTHORIZEDKEYS
 LIBREPATRON_HOST=$LIBREPATRON_HOST
-ZAMMAD_HOST=$ZAMMAD_HOST
 BTCTRANSMUTER_HOST=$BTCTRANSMUTER_HOST
 BTCPAY_CRYPTOS=$BTCPAY_CRYPTOS
 WOOCOMMERCE_HOST=$WOOCOMMERCE_HOST
 TOR_RELAY_NICKNAME=$TOR_RELAY_NICKNAME
-TOR_RELAY_EMAIL=$TOR_RELAY_EMAIL
-EPS_XPUB=$EPS_XPUB" > $BTCPAY_ENV_FILE
-
-env | grep ^BWT_ >> $BTCPAY_ENV_FILE || true
+TOR_RELAY_EMAIL=$TOR_RELAY_EMAIL" > $BTCPAY_ENV_FILE
 }
 
 btcpay_up() {
@@ -146,17 +129,5 @@ btcpay_restart() {
     if ! [ $? -eq 0 ]; then
         docker-compose -f $BTCPAY_DOCKER_COMPOSE restart
     fi
-    popd > /dev/null
-}
-
-btcpay_dump_db() {
-    pushd . > /dev/null
-    cd "$(dirname "$BTCPAY_ENV_FILE")"
-    backup_dir="/var/lib/docker/volumes/backup_datadir/_data"
-    if [ ! -d "$backup_dir" ]; then
-        docker volume create backup_datadir
-    fi
-    local filename=${1:-"postgres-$(date "+%Y%m%d-%H%M%S").sql"}
-    docker exec $(docker ps -a -q -f "name=postgres_1") pg_dumpall -c -U postgres > "$backup_dir/$filename"
     popd > /dev/null
 }
